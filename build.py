@@ -45,3 +45,42 @@ lines = ['# Lançamentos mais bem avaliados no TMDB, gerado em ' + today.isoform
 lines += [f'{kind}\t{tmdb}\t{rating:.1f}\t{year}\t{clean(title)}\t{clean(original)}' for kind, tmdb, rating, year, title, original in rows]
 output.write_text('\n'.join(lines) + '\n', encoding='utf8')
 print(f'{len(rows)} títulos em {output.name}.')
+
+# temas.tsv: fileiras temáticas ("=") e sagas em ordem de lançamento ("@"), as mesmas do Cine Android (Themes.java).
+THEMES = [
+    ('=Super-heróis em ação', '/discover/movie', {'with_keywords': 9715}),
+    ('=Baseado em fatos reais', '/discover/movie', {'with_keywords': 9672}),
+    ('=Perdidos no espaço', '/discover/movie', {'with_keywords': 9882}),
+    ('=Viagem no tempo', '/discover/movie', {'with_keywords': 4379}),
+    ('=O assalto perfeito', '/discover/movie', {'with_keywords': 10051}),
+    ('=Na linha de frente', '/discover/movie', {'with_genres': 10752}),
+    ('=Quando o desastre chega', '/discover/movie', {'with_keywords': 10617}),
+    ('=Apocalipse zumbi', '/discover/movie', {'with_keywords': 12377}),
+    ('=Esporte e superação', '/discover/movie', {'with_keywords': 6075}),
+    ('=Sessão de terror', '/discover/movie', {'with_genres': 27}),
+    ('=Noite em família', '/discover/movie', {'with_genres': 10751}),
+    ('=Animes', '/discover/tv', {'with_keywords': 210024}),
+    ('=Séries de crime', '/discover/tv', {'with_genres': 80}),
+]
+SAGAS = [('Velozes & Furiosos', 9485), ('Missão: Impossível', 87359), ('Harry Potter', 1241), ('Vingadores', 86311),
+         ('Star Wars', 10), ('O Senhor dos Anéis', 119), ('John Wick', 404609), ('Jurassic Park', 328),
+         ('Piratas do Caribe', 295), ('Transformers', 8650), ('Toy Story', 10194), ('Shrek', 2150)]
+
+
+def entry(kind, item):
+    date_field, title_field, original_field = ('first_air_date', 'name', 'original_name') if kind == 's' else ('release_date', 'title', 'original_title')
+    return f"{kind}\t{item['id']}\t{item.get('vote_average', 0):.1f}\t{(item.get(date_field) or '')[:4]}\t{clean(item.get(title_field))}\t{clean(item.get(original_field))}"
+
+
+themes = ['# Fileiras temáticas (=) e sagas (@) do TMDB, gerado em ' + today.isoformat()]
+for name, path, query in THEMES:
+    kind = 's' if path.endswith('/tv') else 'f'
+    themes.append(name)
+    for page in (1, 2):
+        themes += [entry(kind, item) for item in get(path, sort_by='popularity.desc', include_adult='false', page=page,
+                                                     **{'vote_count.gte': 100}, **query)['results']]
+for name, collection in SAGAS:
+    themes.append('@' + name)
+    themes += [entry('f', item) for item in sorted(get(f'/collection/{collection}').get('parts', []), key=lambda p: p.get('release_date') or '9999')]
+(output.parent / 'temas.tsv').write_text('\n'.join(themes) + '\n', encoding='utf8')
+print(f'{len(THEMES) + len(SAGAS)} listas em temas.tsv.')
