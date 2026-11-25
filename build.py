@@ -17,7 +17,7 @@ api_key = re.fullmatch(r'[0-9a-fA-F]{32}', credential) is not None
 
 
 def get(path, **params):
-    params['language'] = 'pt-BR'
+    params.setdefault('language', 'pt-BR')
     if api_key: params['api_key'] = credential
     request = Request('https://api.themoviedb.org/3' + path + '?' + urlencode(params), headers={'Accept': 'application/json'})
     if not api_key: request.add_header('Authorization', 'Bearer ' + credential)
@@ -59,8 +59,15 @@ THEMES = [
     ('=Esporte e superação', '/discover/movie', {'with_keywords': 6075}),
     ('=Sessão de terror', '/discover/movie', {'with_genres': 27}),
     ('=Noite em família', '/discover/movie', {'with_genres': 10751}),
+    ('=Curtinhos (menos de 100 min)', '/discover/movie', {'with_runtime.lte': 100, 'with_runtime.gte': 70}),
+    ('=Épicos de fôlego (2h30+)', '/discover/movie', {'with_runtime.gte': 150}),
+    ('=Clássicos dos anos 90', '/discover/movie', {'primary_release_date.gte': '1990-01-01', 'primary_release_date.lte': '1999-12-31'}),
+    ('=Clássicos dos anos 80', '/discover/movie', {'primary_release_date.gte': '1980-01-01', 'primary_release_date.lte': '1989-12-31'}),
+    ('=Viradas de roteiro', '/discover/movie', {'with_keywords': 10183}),
+    ('=Premiados e aclamados', '/discover/movie', {'vote_count.gte': 3000, 'sort_by': 'vote_average.desc'}),
     ('=Animes', '/discover/tv', {'with_keywords': 210024}),
     ('=Séries de crime', '/discover/tv', {'with_genres': 80}),
+    ('=Doramas e séries coreanas', '/discover/tv', {'with_original_language': 'ko'}),
 ]
 SAGAS = [('Velozes & Furiosos', 9485), ('Missão: Impossível', 87359), ('Harry Potter', 1241), ('Vingadores', 86311),
          ('Star Wars', 10), ('O Senhor dos Anéis', 119), ('John Wick', 404609), ('Jurassic Park', 328),
@@ -77,8 +84,9 @@ for name, path, query in THEMES:
     kind = 's' if path.endswith('/tv') else 'f'
     themes.append(name)
     for page in (1, 2):
-        themes += [entry(kind, item) for item in get(path, sort_by='popularity.desc', include_adult='false', page=page,
-                                                     **{'vote_count.gte': 100}, **query)['results']]
+        opts = {'sort_by': 'popularity.desc', 'include_adult': 'false', 'page': page, 'vote_count.gte': 100}
+        opts.update(query)
+        themes += [entry(kind, item) for item in get(path, **opts)['results']]
 for name, collection in SAGAS:
     themes.append('@' + name)
     themes += [entry('f', item) for item in sorted(get(f'/collection/{collection}').get('parts', []), key=lambda p: p.get('release_date') or '9999')]
